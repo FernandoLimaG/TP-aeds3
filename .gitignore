@@ -1,0 +1,20 @@
+# IntelliJ
+.idea/
+out/
+
+# VSCode
+.vscode/
+
+# Java
+*.class
+*.jar
+*.tar.gz
+*.zip
+
+# LaTeX
+*.aux
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
