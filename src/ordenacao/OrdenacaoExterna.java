@@ -16,7 +16,7 @@ public class OrdenacaoExterna {
         this.limiteMemoria = limiteMemoria;
     }
 
-    // FASE 1: Lê o arquivo original, limpa os excluídos, ordena blocos e distribui
+    // Distribuição: Lê o arquivo original, limpa os excluídos, ordena blocos e distribui
     public int distribuir() {
         int arquivosGerados = 0;
         
@@ -110,94 +110,169 @@ public class OrdenacaoExterna {
         }
     }
 
-    // FASE 2: Intercalação (Merge dos caminhos)
-    public void intercalar() {
+    // Intercalação dos segmentos, respeitando os caminhos
+    public void intercalar(int arquivosGerados) {
         try {
-            // Arrays para controlar os arquivos e o registro atual de cada um
-            RandomAccessFile[] arquivosTemp = new RandomAccessFile[this.caminhos];
-            Filme[] filmesAtuais = new Filme[this.caminhos];
-            boolean[] fimDeArquivo = new boolean[this.caminhos];
-            int maxId = 0;
+            // Armazenar UltimoID
+            RandomAccessFile rafOriginal =
+                    new RandomAccessFile(this.arquivoOriginal, "r");
+            int ultimoId = rafOriginal.readInt();
+            rafOriginal.close();
 
-            // 1. Abre os arquivos temporários e lê o primeiro registro de cada
-            for (int i = 0; i < this.caminhos; i++) {
-                String nomeArquivo = "dados/temp_0_" + i + ".bin";
-                File file = new File(nomeArquivo);
-                
-                if (file.exists()) {
-                    arquivosTemp[i] = new RandomAccessFile(nomeArquivo, "r");
-                    filmesAtuais[i] = lerProximoFilme(arquivosTemp[i]);
-                    if (filmesAtuais[i] == null) {
-                        fimDeArquivo[i] = true; // Arquivo já estava vazio
-                    }
-                } else {
-                    fimDeArquivo[i] = true; // Arquivo não existe
-                }
-            }
+            // Cada lado possui a quantidade de caminhos recebida do usuário.
+            int ladoEntrada = 0;
+            int ladoSaida = 1;
+            long tamanhoSegmento = this.limiteMemoria;
 
-            // 2. Prepara o NOVO arquivo principal limpo
-            String nomeNovoArquivo = "dados/dados_ordenado.bin";
-            File novoFile = new File(nomeNovoArquivo);
-            if (novoFile.exists()) novoFile.delete();
-            
-            RandomAccessFile rafNovo = new RandomAccessFile(nomeNovoArquivo, "rw");
-            rafNovo.writeInt(0); // Escreve um cabeçalho temporário
+            // arquivosGerados é a quantidade de segmentos retornada por distribuir().
+            while (arquivosGerados > 1) {
+                RandomAccessFile[] arquivosEntrada =
+                        new RandomAccessFile[this.caminhos];
+                RandomAccessFile[] arquivosSaida =
+                        new RandomAccessFile[this.caminhos];
 
-            // 3. Laço principal da Intercalação (encontra o menor ID entre os arquivos)
-            while (true) {
-                int indiceMenor = -1;
-                int menorId = Integer.MAX_VALUE;
-
-                // Varre o array buscando quem tem o menor ID na rodada atual
                 for (int i = 0; i < this.caminhos; i++) {
-                    if (!fimDeArquivo[i] && filmesAtuais[i] != null) {
-                        if (filmesAtuais[i].getId() < menorId) {
-                            menorId = filmesAtuais[i].getId();
-                            indiceMenor = i;
+                    String nomeEntrada =
+                            "dados/temp_" + ladoEntrada + "_" + i + ".bin";
+
+                    if (new File(nomeEntrada).exists()) {
+                        arquivosEntrada[i] =
+                                new RandomAccessFile(nomeEntrada, "r");
+                    }
+
+                    String nomeSaida =
+                            "dados/temp_" + ladoSaida + "_" + i + ".bin";
+
+                    arquivosSaida[i] = new RandomAccessFile(nomeSaida, "rw");
+
+                    // Limpa o conteúdo da passagem anterior antes de reutilizar.
+                    arquivosSaida[i].setLength(0);
+                }
+
+                int segmentosGerados = 0;
+                boolean existeSegmento = true;
+
+                while (existeSegmento) {
+                    Filme[] filmesAtuais = new Filme[this.caminhos];
+                    long[] registrosLidos = new long[this.caminhos];
+                    existeSegmento = false;
+
+                    // Inicia um segmento de cada caminho de entrada.
+                    for (int i = 0; i < this.caminhos; i++) {
+                        if (arquivosEntrada[i] != null) {
+                            filmesAtuais[i] =
+                                    lerProximoFilme(arquivosEntrada[i]);
+
+                            if (filmesAtuais[i] != null) {
+                                registrosLidos[i] = 1;
+                                existeSegmento = true;
+                            }
                         }
                     }
+
+                    if (existeSegmento) {
+                        // Alterna o destino dos segmentos entre os caminhos.
+                        int caminhoSaida = segmentosGerados % this.caminhos;
+
+                        while (true) {
+                            int indiceMenor = -1;
+
+                            // Escolhe o menor ID disponível nos segmentos atuais.
+                            for (int i = 0; i < this.caminhos; i++) {
+                                if (filmesAtuais[i] != null) {
+                                    if (indiceMenor == -1
+                                            || filmesAtuais[i].getId()
+                                            < filmesAtuais[indiceMenor].getId()) {
+                                        indiceMenor = i;
+                                    }
+                                }
+                            }
+
+                            // Todos os segmentos deste grupo terminaram.
+                            if (indiceMenor == -1) {
+                                break;
+                            }
+
+                            byte[] ba = filmesAtuais[indiceMenor].toByteArray();
+                            arquivosSaida[caminhoSaida].writeByte(' ');
+                            arquivosSaida[caminhoSaida].writeInt(ba.length);
+                            arquivosSaida[caminhoSaida].write(ba);
+
+                            /*
+                            * Avança somente no caminho vencedor.
+                            * Ao atingir o limite, deixa o próximo segmento
+                            * para o próximo grupo de intercalação.
+                            */
+                            if (registrosLidos[indiceMenor] < tamanhoSegmento) {
+                                filmesAtuais[indiceMenor] =
+                                        lerProximoFilme(arquivosEntrada[indiceMenor]);
+                                registrosLidos[indiceMenor]++;
+                            } else {
+                                filmesAtuais[indiceMenor] = null;
+                            }
+                        }
+
+                        segmentosGerados++;
+                    }
                 }
 
-                // Se não achou nenhum, todos os arquivos temporários chegaram ao fim
-                if (indiceMenor == -1) {
-                    break; 
+                for (int i = 0; i < this.caminhos; i++) {
+                    if (arquivosEntrada[i] != null) {
+                        arquivosEntrada[i].close();
+                    }
+                    arquivosSaida[i].close();
                 }
 
-                // 4. Grava o vencedor (menor ID) no arquivo novo
-                Filme filmeGravar = filmesAtuais[indiceMenor];
-                byte[] ba = filmeGravar.toByteArray();
-                
-                rafNovo.writeByte(' '); // Lápide de registro válido
-                rafNovo.writeInt(ba.length);
-                rafNovo.write(ba);
-                
-                // Mantém o controle do maior ID do sistema para o cabeçalho
-                if (filmeGravar.getId() > maxId) {
-                    maxId = filmeGravar.getId();
-                }
+                arquivosGerados = segmentosGerados;
 
-                // 5. Avança a leitura apenas no arquivo que venceu a disputa
-                filmesAtuais[indiceMenor] = lerProximoFilme(arquivosTemp[indiceMenor]);
-                if (filmesAtuais[indiceMenor] == null) {
-                    fimDeArquivo[indiceMenor] = true;
-                }
+                // Cada passagem reúne até "caminhos" segmentos em um só.
+                tamanhoSegmento *= this.caminhos;
+
+                // A saída desta passagem será a entrada da próxima.
+                int troca = ladoEntrada;
+                ladoEntrada = ladoSaida;
+                ladoSaida = troca;
             }
 
-            // 6. Atualiza o cabeçalho definitivo e fecha o arquivo novo
-            rafNovo.seek(0);
-            rafNovo.writeInt(maxId);
+            String nomeNovoArquivo = "dados/dados_ordenado.bin";
+            File novoFile = new File(nomeNovoArquivo);
+
+            RandomAccessFile rafNovo =
+                    new RandomAccessFile(nomeNovoArquivo, "rw");
+            rafNovo.setLength(0);
+            rafNovo.writeInt(ultimoId);
+
+            // O único segmento restante está no caminho 0.
+            if (arquivosGerados == 1) {
+                String nomeFinal = "dados/temp_" + ladoEntrada + "_0.bin";
+                RandomAccessFile arquivoFinal =
+                        new RandomAccessFile(nomeFinal, "r");
+
+                Filme filme = lerProximoFilme(arquivoFinal);
+
+                while (filme != null) {
+                    byte[] ba = filme.toByteArray();
+                    rafNovo.writeByte(' ');
+                    rafNovo.writeInt(ba.length);
+                    rafNovo.write(ba);
+
+                    filme = lerProximoFilme(arquivoFinal);
+                }
+
+                arquivoFinal.close();
+            }
+
             rafNovo.close();
 
-            // 7. Limpeza da pasta (Fecha os temporários e deleta tudo que não serve mais)
+            // Remove os caminhos temporários de entrada e saída.
             for (int i = 0; i < this.caminhos; i++) {
-                if (arquivosTemp[i] != null) {
-                    arquivosTemp[i].close();
-                    File f = new File("dados/temp_0_" + i + ".bin");
-                    f.delete();
-                }
+                File entrada = new File("dados/temp_0_" + i + ".bin");
+                File saida = new File("dados/temp_1_" + i + ".bin");
+                entrada.delete();
+                saida.delete();
             }
-            
-            // Substitui o arquivo original desordenado pelo novo ordenado
+
+            // Mantém o mesmo nome utilizado pelas operações de CRUD.
             File arquivoAntigo = new File(this.arquivoOriginal);
             if (arquivoAntigo.exists()) arquivoAntigo.delete();
             novoFile.renameTo(arquivoAntigo);

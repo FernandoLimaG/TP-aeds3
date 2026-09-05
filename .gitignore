@@ -14,6 +14,10 @@
 *.aux
 *.log
 
+# Binários
+*.bin
+*.db
+
 # OS
 .DS_Store
 Thumbs.db

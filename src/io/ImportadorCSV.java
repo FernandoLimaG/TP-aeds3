@@ -29,7 +29,7 @@ public class ImportadorCSV {
 
             System.out.println("Lendo o CSV e gravando no arquivo binário...");
 
-            // Vamos importar todos os registros agora (removi a limitação de 10 linhas)
+            // Importar registros
             while (linha != null) {
                 String[] campos = separarColunasCSV(linha);
                 
@@ -129,7 +129,7 @@ public class ImportadorCSV {
             if (c == '/') {
                 parte++;
             } 
-            // Pega estritamente os caracteres numéricos usando a tabela ASCII
+            // Caracteres numéricos usando a tabela ASCII
             else if (c >= '0' && c <= '9') { 
                 if (parte == 0) mesStr += c;
                 else if (parte == 1) diaStr += c;

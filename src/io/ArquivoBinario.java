@@ -154,12 +154,14 @@ public class ArquivoBinario {
                         byte[] novoBa = filmeAtualizado.toByteArray();
                         
                         // CÁLCULO DE TAMANHO
-                        if (novoBa.length <= tamanhoAntigo) {
-                            // Cenário 1: Cabe no mesmo lugar. Volta o ponteiro para depois da Lápide e do Tamanho
+                        if (novoBa.length == tamanhoAntigo) {
+                            // Cenário 1: Cabe no mesmo lugar.
+                            // Salta o ponteiro para depois da lápide(1 byte) + tamanho (4 bytes) e atualiza
                             raf.seek(posicaoLapide + 5); 
                             raf.write(novoBa);
                         } else {
-                            // Cenário 2: Aumentou de tamanho. Deleta o antigo e insere no final.
+                            // Cenário 2: Tamnho alterou
+                            // Deleta o antigo (marca lápide) e escreve o novo registro ao final
                             raf.seek(posicaoLapide);
                             raf.writeByte('*'); // Lápide de exclusão no antigo
                             

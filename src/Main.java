@@ -34,7 +34,7 @@ public class Main {
                             System.out.println("\n--- Filme Encontrado ---");
                             System.out.println(encontrado);
                         } else {
-                            System.out.println("\nFilme com ID " + idBusca + " não encontrado ou foi deletado.");
+                            System.out.println("\nFilme com ID " + idBusca + " não encontrado.");
                         }
                     } catch (NumberFormatException e) {
                         System.out.println("\nErro: ID inválido.");
@@ -52,7 +52,7 @@ public class Main {
 
                         if (filmeExistente != null) {
                             System.out.println("\n--- Atualizando Filme (ID " + idAtualiza + ") ---");
-                            System.out.println("Deixe em branco e aperte Enter para manter o valor atual.");
+                            System.out.println("Aperte Enter para manter o valor atual.");
 
                             System.out.print("Nome atual (" + filmeExistente.getNome() + "): ");
                             String novoNome = scanner.nextLine();
@@ -123,14 +123,13 @@ public class Main {
 
                     OrdenacaoExterna ordenacao = new OrdenacaoExterna("dados/dados.bin", caminhos, registrosMemoria);
 
-                    System.out.println("Iniciando Fase 1: Distribuição (limpando excluídos e ordenando)...");
+                    System.out.println("\nDistribuição (limpando excluídos e ordenando)...");
                     int totalArquivos = ordenacao.distribuir();
                     System.out.println("Distribuição concluída! " + totalArquivos + " arquivos temporários gerados.");
 
-                    System.out.println("Iniciando Fase 2: Intercalação (Merge dos caminhos)...");
-                    ordenacao.intercalar();
+                    System.out.println("Intercalação (Merge dos caminhos)...");
+                    ordenacao.intercalar(totalArquivos);
                     System.out.println("\nOrdenação Externa concluída com sucesso!");
-                    System.out.println("O arquivo 'dados.bin' agora está limpo e 100% ordenado.");
 
                     break;
                 }
