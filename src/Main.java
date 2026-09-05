@@ -77,7 +77,6 @@ public class Main {
                             System.out.print("Gêneros atuais " + strGen + " - Digite separados por vírgula: ");
                             String novosGeneros = scanner.nextLine();
                             if (!novosGeneros.isEmpty()) filmeExistente.setGeneros(ImportadorCSV.separarGenerosManual(novosGeneros));
-                            // -----------------------------------------------------------
 
                             System.out.print("País atual (" + filmeExistente.getPais() + ") - Sigla de 2 letras: ");
                             String novoPais = scanner.nextLine();
@@ -86,7 +85,6 @@ public class Main {
                             boolean sucesso = arqBin.atualizar(filmeExistente);
                             if (sucesso) {
                                 System.out.println("\nFilme atualizado com sucesso no arquivo binário!");
-                                // --- CORREÇÃO: Mostrando como o registro ficou ---
                                 System.out.println("Como ficou: " + filmeExistente.toString());
                             }
                         } else {
