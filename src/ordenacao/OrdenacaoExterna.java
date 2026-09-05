@@ -198,11 +198,6 @@ public class OrdenacaoExterna {
                             arquivosSaida[caminhoSaida].writeInt(ba.length);
                             arquivosSaida[caminhoSaida].write(ba);
 
-                            /*
-                            * Avança somente no caminho vencedor.
-                            * Ao atingir o limite, deixa o próximo segmento
-                            * para o próximo grupo de intercalação.
-                            */
                             if (registrosLidos[indiceMenor] < tamanhoSegmento) {
                                 filmesAtuais[indiceMenor] =
                                         lerProximoFilme(arquivosEntrada[indiceMenor]);
