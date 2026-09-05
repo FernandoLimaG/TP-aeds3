@@ -137,6 +137,52 @@ public class Main {
 
                     break;
                 }
+                case 6:{
+                    System.out.println("\n--- Inserir Novo Filme (Create) ---");
+                    try {
+                        // Lê o cabeçalho para descobrir qual foi o último ID gerado e soma 1
+                        int novoId = 1;
+                        try {
+                            java.io.RandomAccessFile raf = new java.io.RandomAccessFile("dados/dados.bin", "r");
+                            raf.seek(0);
+                            novoId = raf.readInt() + 1;
+                            raf.close();
+                        } catch (Exception e) {
+                            System.out.println("Arquivo binário não encontrado. Faça a carga primeiro.");
+                            break;
+                        }
+
+                        System.out.println("Novo ID gerado: " + novoId);
+                        
+                        System.out.print("Nome do filme: ");
+                        String novoNome = scanner.nextLine();
+
+                        System.out.print("Data de lançamento (MM/DD/YYYY): ");
+                        String novaData = scanner.nextLine();
+                        long dataConvertida = ImportadorCSV.converterDataManual(novaData);
+
+                        System.out.print("Score (ex: 85.5): ");
+                        float novoScore = Float.parseFloat(scanner.nextLine());
+
+                        System.out.print("Gêneros (separados por vírgula): ");
+                        String novosGeneros = scanner.nextLine();
+                        String[] arrayGeneros = ImportadorCSV.separarGenerosManual(novosGeneros);
+
+                        System.out.print("País (Sigla de 2 letras, ex: US): ");
+                        String novoPais = scanner.nextLine();
+
+                        Filme novoFilme = new Filme(novoId, novoNome, dataConvertida, novoScore, arrayGeneros, novoPais);
+                        
+                        ArquivoBinario arqBin = new ArquivoBinario("dados/dados.bin");
+                        arqBin.inserir(novoFilme);
+                        
+                        System.out.println("\nFilme criado com sucesso no arquivo binário!");
+
+                    } catch (NumberFormatException e) {
+                        System.out.println("\nErro de formatação nos números digitados.");
+                    }
+                    break;
+                }
                 default:{
                     System.out.println("Opção inválida, tente novamente");
                     break;
