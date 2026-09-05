@@ -20,7 +20,7 @@ public class Main {
                 }
                 case 1:{
                     System.out.println("Iniciando carga de dados...");
-                    ImportadorCSV.processarArquivo("dados/imdb_movies.csv", "dados/dados.bin");
+                    ImportadorCSV.processarArquivo("dados/imbd_movies.csv", "dados/dados.bin");
                     break;
                 }
                 case 2:{
@@ -66,7 +66,6 @@ public class Main {
                             String novoScoreStr = scanner.nextLine();
                             if (!novoScoreStr.isEmpty()) filmeExistente.setScore(Float.parseFloat(novoScoreStr));
 
-                            // --- CORREÇÃO: Formatando e mostrando os gêneros atuais ---
                             String strGen = "[";
                             String[] genAtuais = filmeExistente.getGeneros();
                             for (int i = 0; i < genAtuais.length; i++) {
