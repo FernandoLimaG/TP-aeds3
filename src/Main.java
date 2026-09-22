@@ -2,6 +2,7 @@ import entidade.Filme;
 import io.*;
 import menu.Menu;
 import ordenacao.OrdenacaoExterna;
+import arvore.ArvoreBMais;
 
 import java.util.Scanner;
 
@@ -9,6 +10,9 @@ public class Main {
     public static void main(String[] args) {
         Scanner scanner = new Scanner(System.in);
         int opcao;
+
+        ArvoreBMais arvore = new ArvoreBMais("dados/indice_arvore.bin", 5);
+        arvore.inicializar();
 
         do {
             opcao = Menu.principal(scanner);
@@ -20,19 +24,39 @@ public class Main {
                 }
                 case 1:{
                     System.out.println("Iniciando carga de dados...");
-                    ImportadorCSV.processarArquivo("dados/imbd_movies.csv", "dados/dados.bin");
+                    ImportadorCSV.processarArquivo("dados/imdb_movies.csv", "dados/dados.bin", arvore);
                     break;
                 }
                 case 2:{
                     try {
                         System.out.print("Digite o ID do filme que deseja ler: ");
                         int idBusca = Integer.parseInt(scanner.nextLine());
+                        
+                        System.out.println("\nQual índice deseja usar para a busca?");
+                        System.out.println("1. Árvore B+");
+                        System.out.println("2. Hashing Estendido (Em breve)");
+                        System.out.println("3. Lista Invertida (Em breve)");
+                        System.out.print("Escolha: ");
+                        int opcaoIndice = Integer.parseInt(scanner.nextLine());
+
                         ArquivoBinario arqBin = new ArquivoBinario("dados/dados.bin");
-                        Filme encontrado = arqBin.ler(idBusca);
+                        Filme encontrado = null;
+
+                        long tempoInicio = System.currentTimeMillis();
+
+                        if (opcaoIndice == 1) {
+                            encontrado = arqBin.lerComIndice(idBusca, arvore);
+                        } else {
+                            System.out.println("Índice ainda não implementado. Usando Árvore B+ por padrão.");
+                            encontrado = arqBin.lerComIndice(idBusca, arvore);
+                        }
+
+                        long tempoFim = System.currentTimeMillis();
 
                         if (encontrado != null) {
                             System.out.println("\n--- Filme Encontrado ---");
                             System.out.println(encontrado);
+                            System.out.println("Tempo de busca: " + (tempoFim - tempoInicio) + " ms");
                         } else {
                             System.out.println("\nFilme com ID " + idBusca + " não encontrado.");
                         }
@@ -48,7 +72,8 @@ public class Main {
                     try {
                         int idAtualiza = Integer.parseInt(idStr);
                         ArquivoBinario arqBin = new ArquivoBinario("dados/dados.bin");
-                        Filme filmeExistente = arqBin.ler(idAtualiza);
+                        
+                        Filme filmeExistente = arqBin.lerComIndice(idAtualiza, arvore);
 
                         if (filmeExistente != null) {
                             System.out.println("\n--- Atualizando Filme (ID " + idAtualiza + ") ---");
@@ -136,7 +161,6 @@ public class Main {
                 case 6:{
                     System.out.println("\n--- Inserir Novo Filme (Create) ---");
                     try {
-                        // Lê o cabeçalho para descobrir qual foi o último ID gerado e soma 1
                         int novoId = 1;
                         try {
                             java.io.RandomAccessFile raf = new java.io.RandomAccessFile("dados/dados.bin", "r");
@@ -155,14 +179,14 @@ public class Main {
 
                         System.out.print("Data de lançamento (MM/DD/YYYY): ");
                         String novaData = scanner.nextLine();
-                        long dataConvertida = ImportadorCSV.converterDataManual(novaData);
+                        long dataConvertida = io.ImportadorCSV.converterDataManual(novaData);
 
                         System.out.print("Score (ex: 85.5): ");
                         float novoScore = Float.parseFloat(scanner.nextLine());
 
                         System.out.print("Gêneros (separados por vírgula): ");
                         String novosGeneros = scanner.nextLine();
-                        String[] arrayGeneros = ImportadorCSV.separarGenerosManual(novosGeneros);
+                        String[] arrayGeneros = io.ImportadorCSV.separarGenerosManual(novosGeneros);
 
                         System.out.print("País (Sigla de 2 letras, ex: US): ");
                         String novoPais = scanner.nextLine();
@@ -170,9 +194,12 @@ public class Main {
                         Filme novoFilme = new Filme(novoId, novoNome, dataConvertida, novoScore, arrayGeneros, novoPais);
                         
                         ArquivoBinario arqBin = new ArquivoBinario("dados/dados.bin");
-                        arqBin.inserir(novoFilme);
+                        long pos = arqBin.inserir(novoFilme);
+                        if (pos != -1) {
+                            arvore.inserir(novoId, pos);
+                        }
                         
-                        System.out.println("\nFilme criado com sucesso no arquivo binário!");
+                        System.out.println("\nFilme criado com sucesso no arquivo binário e indexado na Árvore!");
 
                     } catch (NumberFormatException e) {
                         System.out.println("\nErro de formatação nos números digitados.");
