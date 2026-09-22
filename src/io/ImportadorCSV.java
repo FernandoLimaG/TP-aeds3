@@ -1,5 +1,6 @@
 package io;
 
+import arvore.ArvoreBMais;
 import entidade.Filme;
 
 import java.io.BufferedReader;
@@ -9,27 +10,31 @@ import java.util.Calendar;
 
 public class ImportadorCSV {
 
-    public static void processarArquivo(String caminhoCSV, String caminhoBinario) {
+    public static void processarArquivo(String caminhoCSV, String caminhoBinario, ArvoreBMais arvore) {
 
         File arquivo = new File(caminhoBinario);
         if (arquivo.exists()) {
             arquivo.delete();
         }
+        
+        File arqArvore = new File("dados/indice_arvore.bin");
+        if (arqArvore.exists()) {
+            arqArvore.delete();
+        }
 
         int contadorId = 1;
         
-        // Prepara o arquivo binário
         ArquivoBinario arqBin = new ArquivoBinario(caminhoBinario);
         arqBin.inicializar();
+        arvore.inicializar();
 
         try {
             BufferedReader br = new BufferedReader(new FileReader(caminhoCSV));
-            String linha = br.readLine(); // Pula o cabeçalho
+            String linha = br.readLine(); 
             linha = br.readLine();
 
-            System.out.println("Lendo o CSV e gravando no arquivo binário...");
+            System.out.println("A ler o CSV e a gravar no ficheiro binário e na Árvore B+...");
 
-            // Importar registros
             while (linha != null) {
                 String[] campos = separarColunasCSV(linha);
                 
@@ -44,21 +49,23 @@ public class ImportadorCSV {
 
                 Filme filme = new Filme(contadorId, nome, dataLancamento, score, generos, pais);
                 
-                // Grava fisicamente no arquivo .bin
-                arqBin.inserir(filme);
+                long posicao = arqBin.inserir(filme);
+                
+                if (posicao != -1) {
+                    arvore.inserir(contadorId, posicao);
+                }
                 
                 contadorId++;
                 linha = br.readLine();
             }
             br.close();
-            System.out.println("Carga da base de dados concluída com sucesso! " + (contadorId - 1) + " registros gravados.");
+            System.out.println("Carga da base de dados concluída! " + (contadorId - 1) + " registos gravados e indexados.");
             
         } catch (Exception e) {
-            System.out.println("Erro ao ler o arquivo: " + e.getMessage());
+            System.out.println(e.getMessage());
         }
     }
 
-    // Separa as colunas do CSV lidando com aspas duplas, usando apenas charAt
     private static String[] separarColunasCSV(String linha) {
         String[] campos = new String[15]; 
         int indice = 0;
@@ -80,14 +87,12 @@ public class ImportadorCSV {
         }
         campos[indice] = atual;
 
-        // Preenche nulls com string vazia
         for(int i = 0; i < campos.length; i++) {
             if(campos[i] == null) campos[i] = "";
         }
         return campos;
     }
 
-    // Separa a string "Drama, Action" num array, ignorando os espaços após a vírgula
     public static String[] separarGenerosManual(String bruta) {
         int qtd = 1;
         for (int i = 0; i < bruta.length(); i++) {
@@ -105,7 +110,6 @@ public class ImportadorCSV {
                 indice++;
                 atual = "";
             } else if (c == ' ' && atual.length() == 0) {
-                // Pula o espaço se estiver no começo do nome do gênero
                 continue;
             } else {
                 atual += c;
@@ -115,21 +119,19 @@ public class ImportadorCSV {
         return generos;
     }
 
-    // Converte a string MM/DD/YYYY para um long de milissegundos lidando com espaços manuais
     public static long converterDataManual(String dataStr) {
         if (dataStr.length() == 0) return 0;
         
         String mesStr = "";
         String diaStr = "";
         String anoStr = "";
-        int parte = 0; // 0 = mes, 1 = dia, 2 = ano
+        int parte = 0; 
 
         for (int i = 0; i < dataStr.length(); i++) {
             char c = dataStr.charAt(i);
             if (c == '/') {
                 parte++;
             } 
-            // Caracteres numéricos usando a tabela ASCII
             else if (c >= '0' && c <= '9') { 
                 if (parte == 0) mesStr += c;
                 else if (parte == 1) diaStr += c;
@@ -143,7 +145,7 @@ public class ImportadorCSV {
             int ano = Integer.parseInt(anoStr);
 
             Calendar cal = Calendar.getInstance();
-            cal.set(ano, mes - 1, dia, 0, 0, 0); // Mês no Calendar começa em 0
+            cal.set(ano, mes - 1, dia, 0, 0, 0); 
             return cal.getTimeInMillis();
         } catch (Exception e) {
             return 0;

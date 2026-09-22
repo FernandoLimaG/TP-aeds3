@@ -26,69 +26,63 @@ public class ArquivoBinario {
     }
 
     // Insere um novo filme no final do arquivo e atualiza o cabeçalho
-    public void inserir(Filme filme) {
+    public long inserir(Filme filme) {
         try {
-            RandomAccessFile raf = new RandomAccessFile(this.nomeArquivo, "rw");
+            java.io.RandomAccessFile raf = new java.io.RandomAccessFile(this.nomeArquivo, "rw");
             
-            // 1. Atualiza o cabeçalho com o novo ID
             raf.seek(0); 
             raf.writeInt(filme.getId());
 
-            // 2. Vai para o final do arquivo para inserir o novo registro
-            raf.seek(raf.length());
+            long posicaoRegisto = raf.length();
+            raf.seek(posicaoRegisto);
 
-            // Converte o objeto para vetor de bytes
             byte[] ba = filme.toByteArray();
 
-            // 3. Escreve a Lápide (espaço em branco ' ' significa válido, asterisco '*' significa excluído)
             raf.writeByte(' '); 
-
-            // 4. Escreve o Indicador de Tamanho do registro
             raf.writeInt(ba.length);
-
-            // 5. Escreve o Vetor de Bytes com os dados
             raf.write(ba);
 
             raf.close();
-        } catch (IOException e) {
-            System.out.println("Erro ao inserir registro: " + e.getMessage());
+            return posicaoRegisto;
+        } catch (java.io.IOException e) {
+            System.out.println(e.getMessage());
+            return -1;
         }
     }
 
     // Método para Ler um registro pelo ID
-    public Filme ler(int idBuscado) {
+    public Filme lerComIndice(int idBuscado, arvore.ArvoreBMais arvore) {
         try {
-            RandomAccessFile raf = new RandomAccessFile(this.nomeArquivo, "r");
-            
-            // Pula o cabeçalho (os primeiros 4 bytes do int)
-            raf.seek(4);
+            // 1. Busca o endereço do registro na árvore B+ (O(log n))
+            long posicaoNoArquivo = arvore.buscar(idBuscado);
 
-            // Varre o arquivo até o final
-            while (raf.getFilePointer() < raf.length()) {
-                byte lapide = raf.readByte();
-                int tamanho = raf.readInt();
-                
-                // Lê o vetor de bytes do registro
-                byte[] ba = new byte[tamanho];
-                raf.read(ba);
-
-                // Se a lápide for um espaço (' '), o registro é válido
-                if (lapide == ' ') {
-                    Filme filme = new Filme();
-                    filme.fromByteArray(ba); // Converte os bytes de volta para o objeto
-                    
-                    // Verifica se é o ID que estamos procurando
-                    if (filme.getId() == idBuscado) {
-                        raf.close();
-                        return filme; // Retorna o filme encontrado
-                    }
-                }
+            // Se a árvore retornou -1, o ID não existe
+            if (posicaoNoArquivo == -1) {
+                return null; 
             }
+
+            // 2. Pula cirurgicamente para a posição exata no arquivo de dados
+            RandomAccessFile raf = new RandomAccessFile(this.nomeArquivo, "r");
+            raf.seek(posicaoNoArquivo);
+
+            byte lapide = raf.readByte();
+            int tamanho = raf.readInt();
+            
+            byte[] ba = new byte[tamanho];
+            raf.read(ba);
             raf.close();
+
+            // Retorna o filme se não estiver deletado
+            if (lapide == ' ') {
+                Filme filme = new Filme();
+                filme.fromByteArray(ba);
+                return filme;
+            }
+
         } catch (IOException e) {
-            System.out.println("Erro ao ler registro: " + e.getMessage());
+            System.out.println("Erro ao ler registro com índice: " + e.getMessage());
         }
-        return null; // Retorna nulo se não encontrar o ID ou se estiver deletado
+        return null; 
     }
 
     // Método para Deletar (logicamente) um registro pelo ID

@@ -5,6 +5,17 @@ import java.io.IOException;
 import java.io.File;
 
 public class ArvoreBMais {
+
+    private static class Promocao {
+        int chave;
+        long filhoDireito;
+
+        Promocao(int chave, long filhoDireito) {
+            this.chave = chave;
+            this.filhoDireito = filhoDireito;
+        }
+    }
+
     private String nomeArquivo;
     private int ordem;
     private long posicaoRaiz;
@@ -20,14 +31,11 @@ public class ArvoreBMais {
             File file = new File(this.nomeArquivo);
             if (!file.exists()) {
                 RandomAccessFile raf = new RandomAccessFile(this.nomeArquivo, "rw");
-                
                 NoBMais raiz = new NoBMais(this.ordem);
                 byte[] ba = raiz.toByteArray();
-                
                 this.posicaoRaiz = 8;
-                
-                raf.writeLong(this.posicaoRaiz); 
-                raf.write(ba); 
+                raf.writeLong(this.posicaoRaiz);
+                raf.write(ba);
                 raf.close();
             } else {
                 RandomAccessFile raf = new RandomAccessFile(this.nomeArquivo, "r");
@@ -35,7 +43,7 @@ public class ArvoreBMais {
                 raf.close();
             }
         } catch (IOException e) {
-            System.out.println("Erro ao inicializar Árvore B+: " + e.getMessage());
+            System.out.println(e.getMessage());
         }
     }
 
@@ -169,7 +177,7 @@ public class ArvoreBMais {
     private NoBMais lerNo(long posicao) throws IOException {
         RandomAccessFile raf = new RandomAccessFile(this.nomeArquivo, "r");
         raf.seek(posicao);
-        int tamanho = 1 + 4 + ((this.ordem - 1) * 12) + (this.ordem * 8) + 8;
+        int tamanho = 1 + 4 + (this.ordem * 12) + ((this.ordem + 1) * 8) + 8;
         byte[] ba = new byte[tamanho];
         raf.read(ba);
         raf.close();
@@ -198,5 +206,34 @@ public class ArvoreBMais {
         raf.seek(0);
         raf.writeLong(this.posicaoRaiz);
         raf.close();
+    }
+    
+    public long buscar(int id) {
+        if (this.posicaoRaiz == -1) return -1;
+        try {
+            return buscarRecursivo(this.posicaoRaiz, id);
+        } catch (Exception e) {
+            System.out.println(e.getMessage());
+            return -1;
+        }
+    }
+
+    private long buscarRecursivo(long posAtual, int id) throws IOException {
+        NoBMais no = lerNo(posAtual);
+
+        if (no.folha) {
+            for (int i = 0; i < no.numChaves; i++) {
+                if (no.chaves[i] == id) {
+                    return no.ponteirosDados[i];
+                }
+            }
+            return -1;
+        } else {
+            int i = 0;
+            while (i < no.numChaves && id >= no.chaves[i]) {
+                i++;
+            }
+            return buscarRecursivo(no.filhos[i], id);
+        }
     }
 }
