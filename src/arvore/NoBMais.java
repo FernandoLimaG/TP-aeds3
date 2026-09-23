@@ -19,6 +19,8 @@ public class NoBMais {
         this.ordem = ordem;
         this.folha = true;
         this.numChaves = 0;
+        // Uma posição extra permite o transbordamento antes da divisão.
+        // Depois da divisão, cada nó tem no máximo ordem - 1 chaves.
         this.chaves = new int[ordem];
         this.ponteirosDados = new long[ordem];
         this.filhos = new long[ordem + 1];

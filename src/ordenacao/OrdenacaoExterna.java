@@ -11,6 +11,9 @@ public class OrdenacaoExterna {
     private int limiteMemoria;
 
     public OrdenacaoExterna(String arquivoOriginal, int caminhos, int limiteMemoria) {
+        if (caminhos < 2 || limiteMemoria < 1) {
+            throw new IllegalArgumentException("Use pelo menos 2 caminhos e memória para 1 registro.");
+        }
         this.arquivoOriginal = arquivoOriginal;
         this.caminhos = caminhos;
         this.limiteMemoria = limiteMemoria;
@@ -21,6 +24,12 @@ public class OrdenacaoExterna {
         int arquivosGerados = 0;
         
         try {
+            // Descarta temporários de uma execução anterior interrompida.
+            for (int i = 0; i < caminhos; i++) {
+                try (RandomAccessFile temp = new RandomAccessFile("dados/temp_0_" + i + ".bin", "rw")) {
+                    temp.setLength(0);
+                }
+            }
             RandomAccessFile raf = new RandomAccessFile(this.arquivoOriginal, "r");
             raf.seek(4); // Pula o cabeçalho
             
@@ -33,7 +42,7 @@ public class OrdenacaoExterna {
                 int tamanho = raf.readInt();
                 
                 byte[] ba = new byte[tamanho];
-                raf.read(ba);
+                raf.readFully(ba);
 
                 // Só processa se NÃO for um registro deletado (isso remove os espaços em branco)
                 if (lapide == ' ') {
@@ -65,7 +74,7 @@ public class OrdenacaoExterna {
             raf.close();
             
         } catch (IOException e) {
-            System.out.println("Erro na fase de distribuição: " + e.getMessage());
+            throw new IllegalStateException("Erro na fase de distribuição", e);
         }
         
         return arquivosGerados;
@@ -106,7 +115,7 @@ public class OrdenacaoExterna {
             
             tempRaf.close();
         } catch (IOException e) {
-            System.out.println("Erro ao gravar arquivo temporário: " + e.getMessage());
+            throw new IllegalStateException("Erro ao gravar arquivo temporário", e);
         }
     }
 
@@ -269,29 +278,27 @@ public class OrdenacaoExterna {
 
             // Mantém o mesmo nome utilizado pelas operações de CRUD.
             File arquivoAntigo = new File(this.arquivoOriginal);
-            if (arquivoAntigo.exists()) arquivoAntigo.delete();
-            novoFile.renameTo(arquivoAntigo);
+            java.nio.file.Files.move(novoFile.toPath(), arquivoAntigo.toPath(),
+                    java.nio.file.StandardCopyOption.REPLACE_EXISTING);
 
         } catch (IOException e) {
-            System.out.println("Erro na fase de intercalação: " + e.getMessage());
+            throw new IllegalStateException("Erro na fase de intercalação", e);
         }
     }
 
     // Método auxiliar para avançar a leitura dentro de um arquivo temporário
     private Filme lerProximoFilme(RandomAccessFile tempRaf) throws IOException {
-        while (tempRaf.getFilePointer() < tempRaf.length()) {
+        Filme filme = null;
+        while (tempRaf.getFilePointer() < tempRaf.length() && filme == null) {
             byte lapide = tempRaf.readByte();
             int tamanho = tempRaf.readInt();
             byte[] ba = new byte[tamanho];
-            tempRaf.read(ba);
-
+            tempRaf.readFully(ba);
             if (lapide == ' ') {
-                Filme filme = new Filme();
+                filme = new Filme();
                 filme.fromByteArray(ba);
-                return filme;
             }
         }
-        return null;
+        return filme;
     }
-    
 }

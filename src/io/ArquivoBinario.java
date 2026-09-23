@@ -1,178 +1,231 @@
 package io;
 
 import entidade.Filme;
-
+import arvore.ArvoreBMais;
+import lista.ListaInvertida;
 import java.io.RandomAccessFile;
 import java.io.IOException;
 
 public class ArquivoBinario {
     private String nomeArquivo;
+    private ArvoreBMais arvore;
+    private ListaInvertida listaGeneros;
+    private ListaInvertida listaPaises;
 
-    public ArquivoBinario(String nomeArquivo) {
+    public ArquivoBinario(String nomeArquivo, ArvoreBMais arvore,
+                          ListaInvertida listaGeneros, ListaInvertida listaPaises) {
         this.nomeArquivo = nomeArquivo;
+        this.arvore = arvore;
+        this.listaGeneros = listaGeneros;
+        this.listaPaises = listaPaises;
     }
 
-    // Inicializa o arquivo criando o cabeçalho se ele não existir
     public void inicializar() {
-        try {
-            RandomAccessFile raf = new RandomAccessFile(this.nomeArquivo, "rw");
-            if (raf.length() == 0) {
-                raf.writeInt(0); // Escreve 0 como o último ID utilizado no cabeçalho
-            }
-            raf.close();
+        try (RandomAccessFile raf = new RandomAccessFile(nomeArquivo, "rw")) {
+            if (raf.length() == 0) raf.writeInt(0);
         } catch (IOException e) {
-            System.out.println("Erro ao inicializar o arquivo binário: " + e.getMessage());
+            throw new IllegalStateException("Erro ao inicializar dados", e);
         }
     }
 
-    // Insere um novo filme no final do arquivo e atualiza o cabeçalho
-    public long inserir(Filme filme) {
-        try {
-            java.io.RandomAccessFile raf = new java.io.RandomAccessFile(this.nomeArquivo, "rw");
-            
-            raf.seek(0); 
-            raf.writeInt(filme.getId());
-
-            long posicaoRegisto = raf.length();
-            raf.seek(posicaoRegisto);
-
-            byte[] ba = filme.toByteArray();
-
-            raf.writeByte(' '); 
-            raf.writeInt(ba.length);
-            raf.write(ba);
-
-            raf.close();
-            return posicaoRegisto;
-        } catch (java.io.IOException e) {
-            System.out.println(e.getMessage());
-            return -1;
-        }
-    }
-
-    // Método para Ler um registro pelo ID
-    public Filme lerComIndice(int idBuscado, arvore.ArvoreBMais arvore) {
-        try {
-            // 1. Busca o endereço do registro na árvore B+ (O(log n))
-            long posicaoNoArquivo = arvore.buscar(idBuscado);
-
-            // Se a árvore retornou -1, o ID não existe
-            if (posicaoNoArquivo == -1) {
-                return null; 
-            }
-
-            // 2. Pula cirurgicamente para a posição exata no arquivo de dados
-            RandomAccessFile raf = new RandomAccessFile(this.nomeArquivo, "r");
-            raf.seek(posicaoNoArquivo);
-
-            byte lapide = raf.readByte();
-            int tamanho = raf.readInt();
-            
-            byte[] ba = new byte[tamanho];
-            raf.read(ba);
-            raf.close();
-
-            // Retorna o filme se não estiver deletado
-            if (lapide == ' ') {
-                Filme filme = new Filme();
-                filme.fromByteArray(ba);
-                return filme;
-            }
-
+    public void limpar() {
+        try (RandomAccessFile raf = new RandomAccessFile(nomeArquivo, "rw")) {
+            raf.setLength(0);
+            raf.writeInt(0);
         } catch (IOException e) {
-            System.out.println("Erro ao ler registro com índice: " + e.getMessage());
+            throw new IllegalStateException("Erro ao limpar dados", e);
         }
-        return null; 
+        arvore.limpar();
+        listaGeneros.limpar();
+        listaPaises.limpar();
     }
 
-    // Método para Deletar (logicamente) um registro pelo ID
-    public boolean deletar(int idBuscado) {
-        try {
-            RandomAccessFile raf = new RandomAccessFile(this.nomeArquivo, "rw");
-            
-            raf.seek(4); // Pula o cabeçalho
+    private void indexar(Filme filme, long posicao, boolean novo) {
+        arvore.inserir(filme.getId(), posicao);
+        String[] generos = filme.getGeneros();
+        for (int i = 0; i < generos.length; i++) {
+            String genero = generos[i].replace('\u00A0', ' ').trim();
+            boolean repetido = false;
+            for (int j = 0; j < i && !repetido; j++) {
+                repetido = genero.equalsIgnoreCase(generos[j].replace('\u00A0', ' ').trim());
+            }
+            if (!repetido) listaGeneros.inserir(genero, filme.getId(), posicao, novo);
+        }
+        listaPaises.inserir(filme.getPais(), filme.getId(), posicao, novo);
+    }
 
+    private void removerDasListas(Filme filme) {
+        String[] generos = filme.getGeneros();
+        for (int i = 0; i < generos.length; i++) {
+            listaGeneros.remover(generos[i], filme.getId());
+        }
+        listaPaises.remover(filme.getPais(), filme.getId());
+    }
+
+    // Necessário depois de ordenar: as posições físicas dos registros mudam.
+    public void reconstruirIndices() {
+        arvore.limpar();
+        listaGeneros.limpar();
+        listaPaises.limpar();
+        try (RandomAccessFile raf = new RandomAccessFile(nomeArquivo, "r")) {
+            raf.seek(4);
             while (raf.getFilePointer() < raf.length()) {
-                long posicaoLapide = raf.getFilePointer(); // Guarda a posição exata da lápide
-                
+                long posicao = raf.getFilePointer();
                 byte lapide = raf.readByte();
                 int tamanho = raf.readInt();
-                
-                byte[] ba = new byte[tamanho];
-                raf.read(ba);
-
+                if (tamanho < 0 || tamanho > raf.length() - raf.getFilePointer()) {
+                    throw new IOException("Tamanho inválido de registro.");
+                }
                 if (lapide == ' ') {
+                    byte[] ba = new byte[tamanho];
+                    raf.readFully(ba);
                     Filme filme = new Filme();
                     filme.fromByteArray(ba);
-                    
-                    if (filme.getId() == idBuscado) {
-                        // Volta o ponteiro para a posição da lápide desse registro
-                        raf.seek(posicaoLapide);
-                        
-                        // Escreve '*' para marcar como deletado
-                        raf.writeByte('*'); 
-                        
-                        raf.close();
-                        return true; // Deletado com sucesso
-                    }
+                    indexar(filme, posicao, true);
+                } else {
+                    raf.seek(raf.getFilePointer() + tamanho);
                 }
             }
-            raf.close();
         } catch (IOException e) {
-            System.out.println("Erro ao deletar registro: " + e.getMessage());
+            throw new IllegalStateException("Erro ao reconstruir índices", e);
         }
-        return false; // Retorna falso se não encontrar
     }
 
-    // Método para Atualizar um registro
-    public boolean atualizar(Filme filmeAtualizado) {
-        try {
-            RandomAccessFile raf = new RandomAccessFile(this.nomeArquivo, "rw");
-            raf.seek(4); // Pula o cabeçalho
+    public long inserir(Filme filme) {
+        long posicao;
+        try (RandomAccessFile raf = new RandomAccessFile(nomeArquivo, "rw")) {
+            int ultimoId = raf.readInt();
+            if (filme.getId() <= ultimoId) {
+                throw new IllegalArgumentException("O novo ID deve ser maior que o último ID utilizado.");
+            }
+            byte[] ba = filme.toByteArray();
+            posicao = raf.length();
+            raf.seek(posicao);
+            raf.writeByte(' ');
+            raf.writeInt(ba.length);
+            raf.write(ba);
+            raf.seek(0);
+            raf.writeInt(filme.getId());
+        } catch (IOException e) {
+            throw new IllegalStateException("Erro ao inserir registro", e);
+        }
+        indexar(filme, posicao, true);
+        return posicao;
+    }
 
-            while (raf.getFilePointer() < raf.length()) {
-                long posicaoLapide = raf.getFilePointer(); // Guarda o início do registro
-                
+    // A posição recebida vem da árvore ou de uma das listas invertidas.
+    public Filme lerNaPosicao(long posicao) {
+        Filme filme = null;
+        try (RandomAccessFile raf = new RandomAccessFile(nomeArquivo, "r")) {
+            if (posicao >= 4 && posicao <= raf.length() - 5) {
+                raf.seek(posicao);
                 byte lapide = raf.readByte();
-                int tamanhoAntigo = raf.readInt();
-                
-                byte[] ba = new byte[tamanhoAntigo];
-                raf.read(ba);
+                int tamanho = raf.readInt();
+                if (tamanho < 0 || tamanho > raf.length() - raf.getFilePointer()) {
+                    throw new IOException("Tamanho inválido de registro.");
+                }
+                if (lapide == ' ') {
+                    byte[] ba = new byte[tamanho];
+                    raf.readFully(ba);
+                    filme = new Filme();
+                    filme.fromByteArray(ba);
+                }
+            }
+        } catch (IOException e) {
+            throw new IllegalStateException("Erro ao ler registro", e);
+        }
+        return filme;
+    }
 
+    // TP1: percorre os registros até encontrar o ID ativo solicitado.
+    private long localizarSequencial(int idBuscado) {
+        long posicao = -1;
+        try (RandomAccessFile raf = new RandomAccessFile(nomeArquivo, "r")) {
+            raf.seek(4);
+            while (raf.getFilePointer() < raf.length() && posicao == -1) {
+                long inicio = raf.getFilePointer();
+                byte lapide = raf.readByte();
+                int tamanho = raf.readInt();
+                if (tamanho < 0 || tamanho > raf.length() - raf.getFilePointer()) {
+                    throw new IOException("Tamanho inválido de registro.");
+                }
+                byte[] ba = new byte[tamanho];
+                raf.readFully(ba);
                 if (lapide == ' ') {
                     Filme filme = new Filme();
                     filme.fromByteArray(ba);
-                    
-                    // Se encontrou o ID que queremos atualizar
-                    if (filme.getId() == filmeAtualizado.getId()) {
-                        byte[] novoBa = filmeAtualizado.toByteArray();
-                        
-                        // CÁLCULO DE TAMANHO
-                        if (novoBa.length == tamanhoAntigo) {
-                            // Cenário 1: Cabe no mesmo lugar.
-                            // Salta o ponteiro para depois da lápide(1 byte) + tamanho (4 bytes) e atualiza
-                            raf.seek(posicaoLapide + 5); 
-                            raf.write(novoBa);
-                        } else {
-                            // Cenário 2: Tamnho alterou
-                            // Deleta o antigo (marca lápide) e escreve o novo registro ao final
-                            raf.seek(posicaoLapide);
-                            raf.writeByte('*'); // Lápide de exclusão no antigo
-                            
-                            raf.seek(raf.length()); // Vai para o fim do arquivo
-                            raf.writeByte(' '); // Nova Lápide válida
-                            raf.writeInt(novoBa.length); // Novo tamanho
-                            raf.write(novoBa); // Novos dados
-                        }
-                        raf.close();
-                        return true;
-                    }
+                    if (filme.getId() == idBuscado) posicao = inicio;
                 }
             }
-            raf.close();
         } catch (IOException e) {
-            System.out.println("Erro ao atualizar registro: " + e.getMessage());
+            throw new IllegalStateException("Erro na busca sequencial", e);
         }
-        return false;
+        return posicao;
+    }
+
+    public Filme ler(int idBuscado) {
+        return lerNaPosicao(localizarSequencial(idBuscado));
+    }
+
+    // A localização continua sequencial; a gravação também sincroniza os índices.
+    public boolean deletar(int idBuscado) {
+        return deletar(idBuscado, localizarSequencial(idBuscado));
+    }
+
+    public boolean atualizar(Filme atualizado) {
+        return atualizar(atualizado, localizarSequencial(atualizado.getId()));
+    }
+
+    public Filme lerComIndice(int idBuscado, ArvoreBMais arvore) {
+        Filme filme = lerNaPosicao(arvore.buscar(idBuscado));
+        if (filme != null && filme.getId() != idBuscado) filme = null;
+        return filme;
+    }
+
+    public boolean deletar(int idBuscado, long posicao) {
+        boolean sucesso = false;
+        Filme filme = lerNaPosicao(posicao);
+        if (filme != null && filme.getId() == idBuscado) {
+            try (RandomAccessFile raf = new RandomAccessFile(nomeArquivo, "rw")) {
+                raf.seek(posicao);
+                raf.writeByte('*');
+            } catch (IOException e) {
+                throw new IllegalStateException("Erro ao deletar registro", e);
+            }
+            arvore.remover(idBuscado);
+            removerDasListas(filme);
+            sucesso = true;
+        }
+        return sucesso;
+    }
+
+    public boolean atualizar(Filme atualizado, long posicao) {
+        boolean sucesso = false;
+        Filme antigo = lerNaPosicao(posicao);
+        if (antigo != null && antigo.getId() == atualizado.getId()) {
+            long novaPosicao = posicao;
+            try (RandomAccessFile raf = new RandomAccessFile(nomeArquivo, "rw")) {
+                raf.seek(posicao + 1);
+                int tamanhoAntigo = raf.readInt();
+                byte[] ba = atualizado.toByteArray();
+                if (ba.length == tamanhoAntigo) {
+                    raf.write(ba);
+                } else {
+                    novaPosicao = raf.length();
+                    raf.seek(novaPosicao);
+                    raf.writeByte(' ');
+                    raf.writeInt(ba.length);
+                    raf.write(ba);
+                    raf.seek(posicao);
+                    raf.writeByte('*');
+                }
+            } catch (IOException e) {
+                throw new IllegalStateException("Erro ao atualizar registro", e);
+            }
+            removerDasListas(antigo);
+            indexar(atualizado, novaPosicao, false);
+            sucesso = true;
+        }
+        return sucesso;
     }
 }

@@ -1,39 +1,22 @@
 package io;
 
-import arvore.ArvoreBMais;
 import entidade.Filme;
 
 import java.io.BufferedReader;
 import java.io.FileReader;
-import java.io.File;
 import java.util.Calendar;
 
 public class ImportadorCSV {
 
-    public static void processarArquivo(String caminhoCSV, String caminhoBinario, ArvoreBMais arvore) {
-
-        File arquivo = new File(caminhoBinario);
-        if (arquivo.exists()) {
-            arquivo.delete();
-        }
-        
-        File arqArvore = new File("dados/indice_arvore.bin");
-        if (arqArvore.exists()) {
-            arqArvore.delete();
-        }
-
+    public static void processarArquivo(String caminhoCSV, ArquivoBinario arqBin) {
         int contadorId = 1;
-        
-        ArquivoBinario arqBin = new ArquivoBinario(caminhoBinario);
-        arqBin.inicializar();
-        arvore.inicializar();
-
-        try {
-            BufferedReader br = new BufferedReader(new FileReader(caminhoCSV));
+        // Abre o CSV antes de limpar a base, para preservar os dados se faltar o CSV.
+        try (BufferedReader br = new BufferedReader(new FileReader(caminhoCSV))) {
+            arqBin.limpar();
             String linha = br.readLine(); 
             linha = br.readLine();
 
-            System.out.println("A ler o CSV e a gravar no ficheiro binário e na Árvore B+...");
+            System.out.println("Lendo o CSV e gravando os dados, a Árvore B+ e as duas listas invertidas...");
 
             while (linha != null) {
                 String[] campos = separarColunasCSV(linha);
@@ -49,20 +32,15 @@ public class ImportadorCSV {
 
                 Filme filme = new Filme(contadorId, nome, dataLancamento, score, generos, pais);
                 
-                long posicao = arqBin.inserir(filme);
-                
-                if (posicao != -1) {
-                    arvore.inserir(contadorId, posicao);
-                }
-                
+                arqBin.inserir(filme);
+
                 contadorId++;
                 linha = br.readLine();
             }
-            br.close();
             System.out.println("Carga da base de dados concluída! " + (contadorId - 1) + " registos gravados e indexados.");
             
         } catch (Exception e) {
-            System.out.println(e.getMessage());
+            throw new IllegalStateException("Erro na carga CSV: " + e.getMessage(), e);
         }
     }
 
@@ -75,8 +53,13 @@ public class ImportadorCSV {
         for (int i = 0; i < linha.length(); i++) {
             char c = linha.charAt(i);
             if (c == '"') {
-                if (emAspas) emAspas = false;
-                else emAspas = true;
+                // Duas aspas dentro de um campo representam uma aspa no texto.
+                if (emAspas && i + 1 < linha.length() && linha.charAt(i + 1) == '"') {
+                    atual += '"';
+                    i++;
+                } else {
+                    emAspas = !emAspas;
+                }
             } else if (c == ',' && !emAspas) {
                 campos[indice] = atual;
                 indice++;
@@ -120,35 +103,43 @@ public class ImportadorCSV {
     }
 
     public static long converterDataManual(String dataStr) {
-        if (dataStr.length() == 0) return 0;
-        
-        String mesStr = "";
-        String diaStr = "";
-        String anoStr = "";
-        int parte = 0; 
-
-        for (int i = 0; i < dataStr.length(); i++) {
-            char c = dataStr.charAt(i);
-            if (c == '/') {
-                parte++;
-            } 
-            else if (c >= '0' && c <= '9') { 
-                if (parte == 0) mesStr += c;
-                else if (parte == 1) diaStr += c;
-                else if (parte == 2) anoStr += c;
+        long resultado = 0;
+        if (!dataStr.trim().isEmpty()) {
+            String mesStr = "";
+            String diaStr = "";
+            String anoStr = "";
+            int parte = 0; 
+    
+            for (int i = 0; i < dataStr.length(); i++) {
+                char c = dataStr.charAt(i);
+                if (c == '/') {
+                    parte++;
+                } 
+                else if (c >= '0' && c <= '9') { 
+                    if (parte == 0) mesStr += c;
+                    else if (parte == 1) diaStr += c;
+                    else if (parte == 2) anoStr += c;
+                }
+            }
+    
+            try {
+                int mes = Integer.parseInt(mesStr);
+                int dia = Integer.parseInt(diaStr);
+                int ano = Integer.parseInt(anoStr);
+    
+                Calendar cal = Calendar.getInstance();
+                cal.clear(); // A data não deve herdar os milissegundos da execução.
+                cal.set(ano, mes - 1, dia, 0, 0, 0);
+                resultado = cal.getTimeInMillis();
+                // Verifica o dia sem rejeitar ajustes de horário de verão à meia-noite.
+                if (cal.get(Calendar.YEAR) != ano || cal.get(Calendar.MONTH) != mes - 1
+                        || cal.get(Calendar.DAY_OF_MONTH) != dia) {
+                    throw new IllegalArgumentException("Dia, mês ou ano inválido.");
+                }
+            } catch (Exception e) {
+                throw new IllegalArgumentException("Data inválida. Use MM/DD/YYYY.", e);
             }
         }
-
-        try {
-            int mes = Integer.parseInt(mesStr);
-            int dia = Integer.parseInt(diaStr);
-            int ano = Integer.parseInt(anoStr);
-
-            Calendar cal = Calendar.getInstance();
-            cal.set(ano, mes - 1, dia, 0, 0, 0); 
-            return cal.getTimeInMillis();
-        } catch (Exception e) {
-            return 0;
-        }
+        return resultado;
     }
 }
