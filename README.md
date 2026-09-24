@@ -99,3 +99,4 @@ No submenu TP2, ler, atualizar e excluir permitem escolher:
 
 ## Videos
 - [Youtube: TP1](https://youtu.be/JvL54032Eag)
+- [Youtube: TP2](https://youtu.be/vV-01NqYtm4)
