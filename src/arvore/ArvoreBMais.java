@@ -1,3 +1,4 @@
+
 package arvore;
 
 import java.io.RandomAccessFile;
@@ -64,10 +65,10 @@ public class ArvoreBMais {
                 novaRaiz.filhos[0] = this.posicaoRaiz;
                 novaRaiz.filhos[1] = promocao.filhoDireito;
                 novaRaiz.numChaves = 1;
-                
+
                 long novaPosicao = tamanhoArquivo();
                 escreverNo(novaRaiz, novaPosicao);
-                
+
                 this.posicaoRaiz = novaPosicao;
                 atualizarCabecalho();
             }
@@ -144,7 +145,7 @@ public class ArvoreBMais {
         int meio = this.ordem / 2;
         NoBMais novoNo = new NoBMais(this.ordem);
         novoNo.folha = true;
-        
+
         for (int i = meio; i < this.ordem; i++) {
             novoNo.chaves[i - meio] = no.chaves[i];
             novoNo.ponteirosDados[i - meio] = no.ponteirosDados[i];
@@ -154,13 +155,13 @@ public class ArvoreBMais {
         }
         no.numChaves = meio;
         novoNo.proximaFolha = no.proximaFolha;
-        
+
         long novaPos = tamanhoArquivo();
         no.proximaFolha = novaPos;
-        
+
         escreverNo(novoNo, novaPos);
         escreverNo(no, posAtual);
-        
+
         return new Promocao(novoNo.chaves[0], novaPos);
     }
 
@@ -169,9 +170,9 @@ public class ArvoreBMais {
         int meio = this.ordem / 2;
         NoBMais novoNo = new NoBMais(this.ordem);
         novoNo.folha = false;
-        
+
         int chavePromovida = no.chaves[meio];
-        
+
         for (int i = meio + 1; i < this.ordem; i++) {
             novoNo.chaves[i - (meio + 1)] = no.chaves[i];
             novoNo.filhos[i - (meio + 1)] = no.filhos[i];
@@ -181,14 +182,14 @@ public class ArvoreBMais {
         }
         novoNo.filhos[this.ordem - (meio + 1)] = no.filhos[this.ordem];
         no.filhos[this.ordem] = -1;
-        
+
         no.chaves[meio] = -1;
         no.numChaves = meio;
-        
+
         long novaPos = tamanhoArquivo();
         escreverNo(novoNo, novaPos);
         escreverNo(no, posAtual);
-        
+
         return new Promocao(chavePromovida, novaPos);
     }
 
@@ -200,7 +201,7 @@ public class ArvoreBMais {
         byte[] ba = new byte[tamanho];
         raf.readFully(ba);
         raf.close();
-        
+
         NoBMais no = new NoBMais(this.ordem);
         no.fromByteArray(ba);
         return no;
@@ -229,7 +230,7 @@ public class ArvoreBMais {
         raf.writeLong(this.posicaoRaiz);
         raf.close();
     }
-    
+
     // Retorna o endereço dos dados ou -1 quando não há registro ativo.
     public long buscar(int id) {
         long resultado = -1;
@@ -260,13 +261,132 @@ public class ArvoreBMais {
         return resultado;
     }
 
-    // Exclusão lógica: mantém o separador, mas invalida o endereço na folha.
     public boolean remover(int id) {
-        boolean removido = false;
-        if (buscar(id) != -1) {
-            inserir(id, -1);
-            removido = true;
+        if (buscar(id) == -1) return false;
+        try {
+            removerRecursivo(posicaoRaiz, id);
+            NoBMais raiz = lerNo(posicaoRaiz);
+            if (!raiz.folha && raiz.numChaves == 0) {
+                posicaoRaiz = raiz.filhos[0];
+                atualizarCabecalho();
+            }
+            return true;
+        } catch (IOException e) {
+            throw new IllegalStateException("Erro ao remover da árvore B+", e);
         }
-        return removido;
+    }
+
+    private void removerRecursivo(long posicao, int id) throws IOException {
+        NoBMais no = lerNo(posicao);
+        if (no.folha) {
+            int i = 0;
+            while (i < no.numChaves && no.chaves[i] != id) i++;
+            if (i == no.numChaves) return;
+            for (int j = i; j < no.numChaves - 1; j++) {
+                no.chaves[j] = no.chaves[j + 1];
+                no.ponteirosDados[j] = no.ponteirosDados[j + 1];
+            }
+            no.chaves[--no.numChaves] = -1;
+            no.ponteirosDados[no.numChaves] = -1;
+            escreverNo(no, posicao);
+            return;
+        }
+
+        int i = 0;
+        while (i < no.numChaves && id >= no.chaves[i]) i++;
+        removerRecursivo(no.filhos[i], id);
+        NoBMais filho = lerNo(no.filhos[i]);
+        int minimo = filho.folha ? ordem / 2 : (ordem - 1) / 2;
+        if (filho.numChaves < minimo) reequilibrar(no, i);
+        atualizarSeparadores(no);
+        escreverNo(no, posicao);
+    }
+
+    private int menorChave(long posicao) throws IOException {
+        NoBMais no = lerNo(posicao);
+        while (!no.folha) no = lerNo(no.filhos[0]);
+        if (no.numChaves == 0) throw new IOException("Subárvore vazia no índice");
+        return no.chaves[0];
+    }
+
+    private void atualizarSeparadores(NoBMais no) throws IOException {
+        for (int i = 0; i < no.numChaves; i++)
+            no.chaves[i] = menorChave(no.filhos[i + 1]);
+    }
+
+    private void reequilibrar(NoBMais pai, int indice) throws IOException {
+        NoBMais filho = lerNo(pai.filhos[indice]);
+        int minimo = filho.folha ? ordem / 2 : (ordem - 1) / 2;
+        if (indice > 0) {
+            NoBMais esq = lerNo(pai.filhos[indice - 1]);
+            if (esq.numChaves > minimo) {
+                if (filho.folha) {
+                    for (int j = filho.numChaves; j > 0; j--) {
+                        filho.chaves[j] = filho.chaves[j - 1];
+                        filho.ponteirosDados[j] = filho.ponteirosDados[j - 1];
+                    }
+                    filho.chaves[0] = esq.chaves[esq.numChaves - 1];
+                    filho.ponteirosDados[0] = esq.ponteirosDados[esq.numChaves - 1];
+                    esq.chaves[esq.numChaves - 1] = -1;
+                    esq.ponteirosDados[esq.numChaves - 1] = -1;
+                } else {
+                    for (int j = filho.numChaves; j >= 0; j--) filho.filhos[j + 1] = filho.filhos[j];
+                    filho.filhos[0] = esq.filhos[esq.numChaves];
+                    esq.filhos[esq.numChaves] = -1;
+                }
+                esq.numChaves--;
+                filho.numChaves++;
+                if (!filho.folha) { atualizarSeparadores(esq); atualizarSeparadores(filho); }
+                escreverNo(esq, pai.filhos[indice - 1]);
+                escreverNo(filho, pai.filhos[indice]);
+                return;
+            }
+        }
+        if (indice < pai.numChaves) {
+            NoBMais dir = lerNo(pai.filhos[indice + 1]);
+            if (dir.numChaves > minimo) {
+                if (filho.folha) {
+                    filho.chaves[filho.numChaves] = dir.chaves[0];
+                    filho.ponteirosDados[filho.numChaves] = dir.ponteirosDados[0];
+                    for (int j = 0; j < dir.numChaves - 1; j++) {
+                        dir.chaves[j] = dir.chaves[j + 1];
+                        dir.ponteirosDados[j] = dir.ponteirosDados[j + 1];
+                    }
+                    dir.chaves[dir.numChaves - 1] = -1;
+                    dir.ponteirosDados[dir.numChaves - 1] = -1;
+                } else {
+                    filho.filhos[filho.numChaves + 1] = dir.filhos[0];
+                    for (int j = 0; j < dir.numChaves; j++) dir.filhos[j] = dir.filhos[j + 1];
+                    dir.filhos[dir.numChaves] = -1;
+                }
+                filho.numChaves++;
+                dir.numChaves--;
+                if (!filho.folha) { atualizarSeparadores(filho); atualizarSeparadores(dir); }
+                escreverNo(filho, pai.filhos[indice]);
+                escreverNo(dir, pai.filhos[indice + 1]);
+                return;
+            }
+        }
+
+        int esquerda = indice > 0 ? indice - 1 : indice;
+        NoBMais a = lerNo(pai.filhos[esquerda]);
+        NoBMais b = lerNo(pai.filhos[esquerda + 1]);
+        if (a.folha) {
+            for (int j = 0; j < b.numChaves; j++) {
+                a.chaves[a.numChaves + j] = b.chaves[j];
+                a.ponteirosDados[a.numChaves + j] = b.ponteirosDados[j];
+            }
+            a.numChaves += b.numChaves;
+            a.proximaFolha = b.proximaFolha;
+        } else {
+            int quantidadeFilhos = a.numChaves + 1;
+            for (int j = 0; j <= b.numChaves; j++) a.filhos[quantidadeFilhos + j] = b.filhos[j];
+            a.numChaves += b.numChaves + 1;
+            atualizarSeparadores(a);
+        }
+        escreverNo(a, pai.filhos[esquerda]);
+        for (int j = esquerda + 1; j < pai.numChaves; j++) pai.filhos[j] = pai.filhos[j + 1];
+        pai.filhos[pai.numChaves] = -1;
+        pai.chaves[--pai.numChaves] = -1;
     }
 }

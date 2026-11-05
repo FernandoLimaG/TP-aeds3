@@ -1,3 +1,4 @@
+
 import io.*;
 import menu.Menu;
 import entidade.Filme;
@@ -26,11 +27,20 @@ public class Main {
         ArquivoBinario arqBin = new ArquivoBinario(caminhoBinario, arvore, generos, paises);
 
         // Inicializar Estruturas
+        boolean indicesAusentes = !indiceValido(indiceArvore, 9L)
+                || !indiceValido(indiceGeneros, 8L)
+                || !indiceValido(indicePaises, 8L);
+
         arvore.inicializar();
         generos.inicializar();
         paises.inicializar();
         arqBin.inicializar();
 
+        if (indicesAusentes) {
+            System.out.println("Índice ausente ou vazio. Reconstruindo os três índices a partir dos dados...");
+            arqBin.reconstruirIndices();
+            System.out.println("Reconstrução concluída.");
+        }
 
         // Interface do usuário
         do {
@@ -94,6 +104,11 @@ public class Main {
         } while (opcao != 0);
 
         scanner.close();
+    }
+
+    private static boolean indiceValido(String caminho, long tamanhoMinimo) {
+        File arquivo = new File(caminho);
+        return arquivo.isFile() && arquivo.length() >= tamanhoMinimo;
     }
 
     // TP1: CRUD sequencial
