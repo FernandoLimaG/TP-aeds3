@@ -6,6 +6,7 @@ import arvore.ArvoreBMais;
 import lista.ListaInvertida;
 import ordenacao.OrdenacaoExterna;
 import casamento.CasamentoPadroes;
+import compressao.GerenciadorCompressao;
 
 import java.io.*;
 import java.util.Scanner;
@@ -88,6 +89,10 @@ public class Main {
                         arqBin.reconstruirIndices();
                         System.out.println("\nOrdenação Externa concluída com sucesso!");
 
+                        break;
+                    }
+                    case 6:{
+                        new GerenciadorCompressao(caminhoBinario, arqBin).menu(scanner);
                         break;
                     }
                     default:{

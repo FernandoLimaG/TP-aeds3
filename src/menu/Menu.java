@@ -12,6 +12,7 @@ public class Menu {
         System.out.println("3. TP2 - CRUD Arquivos Indexado");
         System.out.println("4. TP3 - Casamento de Padrões");
         System.out.println("5. Ordenação Externa");
+        System.out.println("6. TP3 - Compressão Huffman e LZW");
         System.out.println("0. Sair");
         System.out.print("Escolha uma opção: ");
 
