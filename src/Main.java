@@ -4,6 +4,7 @@ import entidade.Filme;
 import arvore.ArvoreBMais;
 import lista.ListaInvertida;
 import ordenacao.OrdenacaoExterna;
+import casamento.CasamentoPadroes;
 
 import java.io.*;
 import java.util.Scanner;
@@ -55,6 +56,10 @@ public class Main {
                         break;
                     }
                     case 4:{
+                        casamentoPadroes(caminhoBinario, scanner);
+                        break;
+                    }
+                    case 5:{
                         System.out.println("--- Ordenação Externa ---");
                         System.out.print("Digite o número de caminhos (ex: 2 ou 3): ");
                         int caminhos = Integer.parseInt(scanner.nextLine());
@@ -455,5 +460,42 @@ public class Main {
             }
         }
         return resultado;
+    }
+
+    // TP3: Casamento de padrões
+    static void casamentoPadroes(String caminhoBinario, Scanner scanner) {
+        int opcao;
+
+        do {
+            opcao = Menu.casamento(scanner);
+            System.out.println();
+
+            switch (opcao) {
+                case 0:{
+                    System.out.println("Voltando ao menu principal...");
+                    break;
+                }
+                case 1:
+                case 2:{
+                    System.out.print("Digite o padrão a pesquisar: ");
+                    String padrao = scanner.nextLine();
+
+                    try {
+                        CasamentoPadroes.executar(caminhoBinario, padrao, opcao);
+                    } catch (IOException e) {
+                        System.out.println("Erro na busca: " + e.getMessage());
+                    } catch (IllegalArgumentException e) {
+                        System.out.println("Padrão inválido: " + e.getMessage());
+                    }
+                    break;
+                }
+                default:{
+                    System.out.println("Opção inválida, tente novamente");
+                    break;
+                }
+            }
+
+            System.out.println();
+        } while (opcao != 0);
     }
 }

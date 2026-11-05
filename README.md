@@ -18,8 +18,8 @@
 ## Etapas
 - **TP 1** - Criação da base de dados, Manipulação de Arquivo Sequencial: Implementação + Vídeo
 - **TP 2** - Manipulação de Arquivo Indexado com Árvore B+, Hash e Lista Invertida: Implementação + Vídeo
-- **TP 3** - Compactação com Huffman e LZW: Implementação + Vídeo
-- **TP 4** - Casamento de Padrões e Criptografia: Implementação + Relatório Final
+- **TP 3** - Compactação e Casamento de Padrões: Implementação + Vídeo
+- **TP 4** - Criptografia: Implementação + Relatório Final
 
 ---
 
@@ -69,7 +69,7 @@ java -cp bin Main
 
 As estruturas utilizadas foram: **Árvore B+** e **Lista Invertida**.
 
-### Árvore B
+### Árvore B+
 
 - Chave implementada: **ID**
 - Ordem Parametrizada: **100** (máximo)
@@ -79,7 +79,7 @@ As estruturas utilizadas foram: **Árvore B+** e **Lista Invertida**.
 
 ### Listas invertidas
 
-Foram escolhidos **gênero** e **país** como base, podendo ser combinados.
+Foram escolhidos **Gênero** e **País** como base, podendo ser combinados.
 
 - `dados/lista_generos.bin`: gênero.
 - `dados/lista_paises.bin`: país.
@@ -96,6 +96,23 @@ No submenu TP2, ler, atualizar e excluir permitem escolher:
 >As alterações feitas pelo submenu TP1 (CRUD Sequencial) também atualizam os três índices para garantir o comportamento esperado do programa.
 
 ---
+
+## Casamento de Padrões
+
+Para o TP3 foram escolhidos os algoritmos **KMP (Knuth-Morris-Pratt)** e **Rabin-Karp**, principalmente pela simplicidade de implementação, eficiência e utilização de técnicas distintas de busca: `prefixos` e `hashing`, respectivamente.
+
+### KMP
+- Utiliza vetor de prefixos para evitar comparações desnecessárias, reaproveitando informações de correspondências anteriores.
+- Complexidade: O(n + m).
+
+### Rabin-Karp
+- Utiliza hashing para comparar o padrão com janelas do texto, atualizando o hash a cada deslocamento.
+- Complexidade esperada: O(n + m)
+- Complexidade pior caso: O(nm)
+
+### Implementação
+
+Os algoritmos foram implementados separadamente, permitindo ao usuário selecionar qual deseja executar pelo menu. A busca é realizada no campo **NOME** dos filmes, percorrendo os registros ativos do arquivo binário e imprimindo os filmes encontrados, a quantidade de ocorrências e o tempo total de execução.
 
 ## Videos
 - [Youtube: TP1](https://youtu.be/JvL54032Eag)
