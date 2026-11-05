@@ -114,6 +114,43 @@ Para o TP3 foram escolhidos os algoritmos **KMP (Knuth-Morris-Pratt)** e **Rabin
 
 Os algoritmos foram implementados separadamente, permitindo ao usuário selecionar qual deseja executar pelo menu. A busca é realizada no campo **NOME** dos filmes, percorrendo os registros ativos do arquivo binário e imprimindo os filmes encontrados, a quantidade de ocorrências e o tempo total de execução.
 
+---
+
+
+## Compressão de Dados
+
+O TP3 utiliza os algoritmos **Huffman** e **LZW** para comprimir todo o conteúdo binário de `dados/dados.bin`, incluindo cabeçalho, lápides, indicadores de tamanho e bytes dos registros. O arquivo original não é modificado durante a compressão.
+
+### Huffman
+
+- Calcula a frequência dos 256 possíveis valores de byte.
+- Constrói uma árvore binária de frequências utilizando nós e vetores próprios.
+- Atribui códigos de tamanho variável, com menos bits para os símbolos mais frequentes.
+- Armazena as frequências no cabeçalho do arquivo compactado para reconstruir a árvore durante a descompressão.
+
+### LZW
+
+- Inicia o dicionário com os 256 possíveis valores de byte.
+- Adiciona sequências encontradas durante a leitura, até o limite de 65.536 entradas.
+- Utiliza uma tabela hash própria com sondagem linear para consultar o dicionário durante a compressão.
+- Grava códigos de tamanho fixo de 16 bits e reconstrói o dicionário durante a descompressão.
+
+### Implementação
+
+Os algoritmos foram implementados separadamente, permitindo que o sistema execute ambos durante a compressão do arquivo binário. A implementação utiliza estruturas próprias e realiza a leitura e escrita dos arquivos com `RandomAccessFile`.
+
+Ao selecionar a opção de compressão, são gerados dois arquivos, um para cada algoritmo, seguindo um sistema de versionamento:
+
+- `dados/dadosHuffmanCompressao1.bin`
+- `dados/dadosLZWCompressao1.bin`
+
+A cada nova compressão, a versão é incrementada, preservando os arquivos anteriores.
+
+O sistema apresenta o tamanho original, o tamanho comprimido, a porcentagem de ganho ou perda e o tempo de execução de cada algoritmo, indicando qual obteve o melhor resultado.
+
+Na descompressão, o usuário informa a versão desejada. Os dois algoritmos são executados e seus resultados são comparados para verificar a integridade dos dados. Após a escolha do usuário, o arquivo `dados.bin` é restaurado e os índices da Árvore B+ e das listas invertidas são reconstruídos.
+
+
 ## Videos
 - [Youtube: TP1](https://youtu.be/JvL54032Eag)
 - [Youtube: TP2](https://youtu.be/Z_lo2dfalNs)
