@@ -154,3 +154,4 @@ Na descompressão, o usuário informa a versão desejada. Os dois algoritmos sã
 ## Videos
 - [Youtube: TP1](https://youtu.be/JvL54032Eag)
 - [Youtube: TP2](https://youtu.be/Z_lo2dfalNs)
+- [Youtube: TP3](https://youtu.be/DmQNnRJjCX0)
